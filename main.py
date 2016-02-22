@@ -1,13 +1,24 @@
 from cassiopeia import riotapi
+from cassiopeia.type.core.common import Queue
+
 import os
 
+#TODO: Set a proper way to select server
 riotapi.set_region("EUW")
+
+# We get the key as an environment variable called DEV_KEY so that it's not exposed in the code
 KEY = os.environ["DEV_KEY"]
 riotapi.set_api_key(KEY)
 
-summonerName = input("Please enter summoner name: ")
-isNameInvalid = True
+# We only get ranked games (S6 onwards)
+Q = Queue.ranked_dynamic_queue
 
+# We ask the user for a summoner name, this is just for testing purposes, this is supposed to be backend
+# only
+summonerName = input("Please enter summoner name: ")
+
+# We check if the summoner name is invalid and keep asking if it's not
+isNameInvalid = True
 while isNameInvalid:
     try:
         summoner = riotapi.get_summoner_by_name(summonerName)
@@ -18,18 +29,26 @@ while isNameInvalid:
         isNameInvalid = False
 
 
-matchHistory = summoner.match_list()
+# We get the summoner's match history, provided that it's a ranked game (Q) and up to a maximum of
+# 50 matches (to be refined later on)
+matchHistory = summoner.match_list(num_matches=50, ranked_queues=Q)
+bans = {}
 
-rkdMatchHistory = []
 for match in matchHistory:
-    if match.queue.name == "ranked_solo" or match.queue.name == "ranked_dynamic_queue":
-        rkdMatchHistory.append(match)
+    fullMatch = match.match(include_timeline=False)
+    blue = fullMatch.blue_team
+    red = fullMatch.red_team
 
-metaRkdMatchHistory = []
-for match in rkdMatchHistory:
-    if (match.timestamp.now().toordinal() - match.timestamp.toordinal()) <= 31:
-        metaRkdMatchHistory.append(match)
+    for ban in blue.bans:
+        if ban.champion.name not in bans.keys():
+            bans[ban.champion.name] = 1
+        else:
+            bans[ban.champion.name] += 1
 
+    for ban in red.bans:
+        if ban.champion.name not in bans.keys():
+            bans[ban.champion.name] = 1
+        else:
+            bans[ban.champion.name] += 1
 
-#nPlayedRankedMonth = len(metaRkdMatchHistory)
-#print("You've played {n} ranked games in the past month".format(n=nPlayedRankedMonth))
+print(bans)
